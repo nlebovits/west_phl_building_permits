@@ -1,0 +1,172 @@
+---
+title: "Promise Zone Building Permits"
+output: 
+  flexdashboard::flex_dashboard:
+    theme:
+      bg: "#ffffff"
+      fg: "#5E2C25"
+      primary: "#444444"
+      base_font:
+        google: Prompt
+      code_font:
+        google: JetBrains Mono
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sf)
+library(rphl)
+library(mapview)
+library(plotly)
+library(ggthemr)
+library(tmap)
+library('downloadthis')
+library(RColorBrewer)
+library(scales)
+
+tmap_options(basemaps = "Esri.WorldGrayCanvas")
+
+ggthemr("pale") #set global ggplot theme
+
+#"#444444" "#de6757" "#EB9050" "#3262AB" "#FF8D7D" "#C8E370" "#C45B4D" "#41a65c" "#5E2C25" "#78695F"
+```
+
+```{r data imports, cache = TRUE, include = FALSE}
+base_url = "https://phl.carto.com/api/v2/sql"
+
+query = "
+        select *
+        from permits
+        where permitissuedate >= '2022-01-01'
+        "
+  
+permits = st_as_sf(get_carto(query,
+                              format = 'csv',
+                              base_url = base_url,
+                              stringsAsFactors = FALSE)|>
+                      filter(!is.na(geocode_x),
+                             !is.na(geocode_y)),
+                      coords = c('geocode_x',
+                                 'geocode_y'),
+                      crs = st_crs('EPSG:2272'))
+
+pz = st_read("C:/Users/Nissim/Documents/Building Permits for Dante/west_phl_building_permits/west_phl_building_permits/Philadelphia_Promise_Zone.shp") |>
+        st_transform(crs = st_crs("EPSG:2272"))
+
+pz_permits = permits[pz, ]
+
+pz_construction_permits = pz_permits |>
+                            filter(permittype %in% c("BUILDING", "DEMOLITION", "RESIDENTIAL BUILDING"))
+
+pz_construction_permits$week = lubridate::week(pz_construction_permits$permitissuedate)
+
+pz_construction_permits$permitissuedate = as.Date(pz_construction_permits$permitissuedate)
+
+pz_construction_permits$status[pz_construction_permits$status == "AMENDMENT READY FOR ISSUE"] = "AMEND. READY FOR ISSUE"
+
+pz_construction_permits$status[pz_construction_permits$status == "AMENDMENT REVIEW"] = "AMEND. REVIEW"
+```
+
+Column {data-width=200}
+-------------------------------------
+
+### Content
+
+##### About the Dashboard
+This dashboard displays building permits issued in the West Philadelphia in the past year. Data were last updated on `r Sys.Date()`. The maps and graphs are interactive and can be filtered by clicking on the relevant areas.
+
+##### Download Data
+To download a list of building permits in the Promise Zone in the last year, click the link below:
+\
+\
+\
+```{r download}
+download_this(pz_construction_permits,
+    output_name = "Promise Zone Building Permits",
+    output_extension = ".xlsx",
+    button_label = "Download Promise Zone Building Permits",
+    button_type = "warning",
+    has_icon = TRUE,
+    icon = "fa fa-save")
+```
+\
+\
+Dashboard built by [Nissim Lebovits](nissim@desiign.upenn.edu).
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### **Building Permits Mapped**
+
+```{r map}
+tmap_mode('view')
+
+map_pal = c("#3262AB", "#FF8D7D","#41a65c")
+
+tm_shape(pz_construction_permits) +
+  tm_dots(title = "Permit Type",
+          col = 'permittype',
+          palette = map_pal,
+          alpha = 0.5,
+          size = 0.1,
+          id = "address",
+              popup.vars = c("Owner" = "opa_owner",
+                             "Contractor" = "contractorname",
+                             "Date Issued" = "permitissuedate",
+                             "Permit Type" = "permittype",
+                             "Permit Description" = "permitdescription",
+                             "Type of Work" = "typeofwork",
+                             "Status" = "status",
+                             "Applicant Type" = "applicanttype")) +
+tm_shape(pz) +
+  tm_borders() +
+tm_view(set.view = 15,
+        view.legend.position = c("right", "bottom"))
+```
+
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### **Building Permits over Time**
+*Hover over the plot to interact with it. Click the camera icon to download it as a .png file.*
+```{r density}
+ggplotly(
+  ggplot(pz_construction_permits, aes(x = permitissuedate, fill = permittype)) +
+  geom_density(alpha = 0.3, color = NA)+
+    labs(x = "Date",
+         y = "Count",
+         fill = "Permit Type") +
+  theme(legend.position = 'bottom') +
+  scale_y_continuous(labels = percent) +
+  scale_fill_manual(values = map_pal)
+    )
+```
+
+### **Building Permits by Type of Work**
+*Hover over the plot to interact with it. Click the camera icon to download it as a .png file.*
+```{r}
+ggplotly(
+  ggplot(pz_construction_permits) +
+    geom_bar(aes(x = typeofwork, fill = permittype), alpha = 0.4, position = 'stack') +
+    labs(y = "Count",
+         fill = "Permit Type") +
+    scale_fill_manual(values = map_pal) +
+    theme(axis.title.x = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, size = 7))
+)
+```
+
+### **Building Permits by Status**
+*Hover over the plot to interact with it. Click the camera icon to download it as a .png file.*
+```{r}
+ggplotly(
+  ggplot(pz_construction_permits) +
+    geom_bar(aes(x = status), fill = "#41a65c", alpha = 0.4) +
+    labs(y = "Count") +
+    theme(axis.title.x = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, size = 7))
+)
+```
