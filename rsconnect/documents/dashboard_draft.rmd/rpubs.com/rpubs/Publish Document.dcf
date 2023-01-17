@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/986937/26eec7252e694da6bb0e57c2299d4297
+bundleId: https://api.rpubs.com/api/v1/document/986937/26eec7252e694da6bb0e57c2299d4297
+url: http://rpubs.com/nlebovits/986937
+when: 1673457211.08727
+lastSyncTime: 1673457211.08728

@@ -59,11 +59,13 @@ map_pal_plus = paste(c(blue[1], blue[3], green[1], green[3], red[1], red[3]))
 ```{r data imports, cache = TRUE, include = FALSE}
 base_url = "https://phl.carto.com/api/v2/sql"
 
-query = "
+one_year_ago = (lubridate::ymd(Sys.Date()) - lubridate::years(1))
+
+query = sprintf("
         select *
         from permits
-        where permitissuedate >= '2022-01-01'
-        "
+        where permitissuedate >= '%s'
+        ", one_year_ago)
   
 permits = st_as_sf(get_carto(query,
                               format = 'csv',
